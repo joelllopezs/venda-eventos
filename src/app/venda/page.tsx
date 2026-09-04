@@ -1,32 +1,75 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import {
+  useEffect,
+  useState
+} from "react";
+
+
+import {
+  supabase
+} from "@/lib/supabase";
+
+
+import {
+  useEvento
+} from "@/context/EventContext";
+
 
 import {
   ShoppingCart,
-  Plus,
-  Minus,
   Trash2,
   CreditCard,
-  Search
+  Search,
+  CheckCircle
 } from "lucide-react";
+
+
 
 
 export default function Venda(){
 
 
+
+const {eventoAtual}=useEvento();
+
+
+
 const [produtos,setProdutos]=useState<any[]>([]);
+
 
 const [busca,setBusca]=useState("");
 
+
 const [carrinho,setCarrinho]=useState<any[]>([]);
+
+
 
 const [pagamento,setPagamento]=useState("PIX");
 
+
+
 const [produtoSelecionado,setProdutoSelecionado]=useState<any>(null);
 
+
+
 const [quantidade,setQuantidade]=useState(1);
+
+
+
+const [vendaFinalizada,setVendaFinalizada]=useState(false);
+
+
+
+const [ultimaVenda,setUltimaVenda]=useState({
+
+total:0,
+
+pagamento:""
+
+});
+
+
 
 
 
@@ -36,17 +79,37 @@ const [quantidade,setQuantidade]=useState(1);
 async function carregarProdutos(){
 
 
+if(!eventoAtual){
+
+setProdutos([]);
+
+return;
+
+}
+
+
+
+
 const {data,error}=await supabase
 
 .from("produtos")
 
 .select("*")
 
-.eq("ativo",true)
+.eq(
+"evento_id",
+eventoAtual.id
+)
 
-.gt("quantidade",0)
+.gt(
+"estoque",
+0
+)
 
 .order("nome");
+
+
+
 
 
 if(error){
@@ -58,7 +121,9 @@ return;
 }
 
 
+
 setProdutos(data || []);
+
 
 
 }
@@ -70,13 +135,20 @@ setProdutos(data || []);
 
 
 
+
 const produtosFiltrados = produtos.filter(p=>
 
+
 p.nome
+
 .toLowerCase()
+
 .includes(
+
 busca.toLowerCase()
+
 )
+
 
 );
 
@@ -86,7 +158,10 @@ busca.toLowerCase()
 
 
 
+
+
 function adicionarProduto(){
+
 
 
 if(!produtoSelecionado){
@@ -100,7 +175,10 @@ return;
 
 
 
-if(quantidade <=0){
+
+if(
+quantidade<=0
+){
 
 alert("Quantidade inválida");
 
@@ -110,13 +188,20 @@ return;
 
 
 
-if(quantidade > produtoSelecionado.quantidade){
+
+
+
+if(
+quantidade >
+produtoSelecionado.estoque
+){
 
 alert(
 
-`Estoque disponível: ${produtoSelecionado.quantidade}`
+`Estoque disponível: ${produtoSelecionado.estoque}`
 
 );
+
 
 return;
 
@@ -126,13 +211,12 @@ return;
 
 
 
-
-
-const existente=carrinho.find(
+const existente = carrinho.find(
 
 p=>p.id===produtoSelecionado.id
 
 );
+
 
 
 
@@ -142,17 +226,25 @@ if(existente){
 
 
 const novaQuantidade =
+
 existente.quantidade + quantidade;
 
 
 
-if(novaQuantidade > produtoSelecionado.quantidade){
+
+
+if(
+novaQuantidade >
+produtoSelecionado.estoque
+){
 
 alert("Quantidade maior que estoque");
 
 return;
 
 }
+
+
 
 
 
@@ -182,7 +274,10 @@ p
 
 
 
+
+
 }else{
+
 
 
 setCarrinho([
@@ -200,7 +295,9 @@ quantidade
 ]);
 
 
+
 }
+
 
 
 
@@ -211,97 +308,6 @@ setProdutoSelecionado(null);
 
 
 }
-
-
-
-
-
-
-
-
-
-function alterarQuantidade(
-
-id:string,
-
-tipo:string
-
-){
-
-
-
-setCarrinho(
-
-carrinho.map(item=>{
-
-
-if(item.id!==id){
-
-return item;
-
-}
-
-
-
-
-if(tipo==="mais"){
-
-
-
-if(item.quantidade + 1 > item.quantidade){
-
-return {
-
-...item,
-
-quantidade:item.quantidade+1
-
-}
-
-}
-
-
-}
-
-
-
-
-
-if(tipo==="menos"){
-
-
-
-if(item.quantidade>1){
-
-return {
-
-...item,
-
-quantidade:item.quantidade-1
-
-}
-
-}
-
-
-
-}
-
-
-
-return item;
-
-
-})
-
-);
-
-
-}
-
-
-
-
 
 
 
@@ -327,9 +333,6 @@ p=>p.id!==id
 
 
 
-
-
-
 function totalVenda(){
 
 
@@ -343,9 +346,11 @@ Number(item.preco_venda)
 
 *
 
-item.quantidade
+item.quantidade,
 
-,0);
+0
+
+);
 
 
 }
@@ -354,11 +359,26 @@ item.quantidade
 
 
 
+useEffect(()=>{
 
 
+carregarProdutos();
 
+
+},[eventoAtual]);
 
 async function finalizarVenda(){
+
+
+
+if(!eventoAtual){
+
+alert("Nenhum evento aberto");
+
+return;
+
+}
+
 
 
 
@@ -375,16 +395,17 @@ return;
 
 
 
-// verificar estoque novamente
+// Confere estoque novamente antes de vender
 
 for(const item of carrinho){
 
 
-const {data:produto}=await supabase
+
+const {data:produto,error}=await supabase
 
 .from("produtos")
 
-.select("quantidade")
+.select("estoque")
 
 .eq("id",item.id)
 
@@ -392,9 +413,13 @@ const {data:produto}=await supabase
 
 
 
-if(!produto){
 
-alert("Produto não encontrado");
+
+if(error || !produto){
+
+alert(
+`Produto não encontrado: ${item.nome}`
+);
 
 return;
 
@@ -402,39 +427,44 @@ return;
 
 
 
-if(produto.quantidade < item.quantidade){
 
+
+if(
+produto.estoque < item.quantidade
+){
 
 alert(
 
-`Estoque insuficiente para ${item.nome}. Disponível: ${produto.quantidade}`
+`Estoque insuficiente para ${item.nome}. Disponível: ${produto.estoque}`
 
 );
 
 
 return;
 
-
-}
-
-
 }
 
 
 
-
-
-
-
-
-const total=totalVenda();
+}
 
 
 
 
 
 
-const {data:venda,error}=await supabase
+
+
+
+const total = totalVenda();
+
+
+
+
+
+
+
+const {data:venda,error:vendaError}=await supabase
 
 .from("vendas")
 
@@ -442,17 +472,24 @@ const {data:venda,error}=await supabase
 
 {
 
+evento_id:eventoAtual.id,
+
 valor_total:total,
 
 forma_pagamento:pagamento,
 
 data_venda:
+
 new Date()
+
 .toISOString()
+
 .split("T")[0],
 
 hora_venda:
+
 new Date()
+
 .toLocaleTimeString()
 
 }
@@ -468,9 +505,10 @@ new Date()
 
 
 
-if(error){
 
-alert(error.message);
+if(vendaError){
+
+alert(vendaError.message);
 
 return;
 
@@ -485,6 +523,8 @@ return;
 
 
 for(const item of carrinho){
+
+
 
 
 
@@ -506,7 +546,10 @@ valor_unitario:item.preco_venda,
 
 subtotal:
 
-item.preco_venda *
+Number(item.preco_venda)
+
+*
+
 item.quantidade
 
 }
@@ -519,29 +562,21 @@ item.quantidade
 
 
 
-const {data:produtoAtual}=await supabase
 
-.from("produtos")
-
-.select("quantidade")
-
-.eq("id",item.id)
-
-.single();
-
-
-
-
-
-
-
-if(produtoAtual){
 
 
 const novoEstoque =
 
-produtoAtual.quantidade -
-item.quantidade;
+Number(item.estoque)
+
+-
+
+Number(item.quantidade);
+
+
+
+
+
 
 
 
@@ -551,11 +586,42 @@ await supabase
 
 .update({
 
-quantidade:novoEstoque
+estoque:novoEstoque
 
 })
 
-.eq("id",item.id);
+.eq(
+"id",
+item.id
+);
+
+
+
+
+
+
+
+
+await supabase
+
+.from("estoque_movimentos")
+
+.insert([
+
+{
+
+produto_id:item.id,
+
+tipo:"SAIDA_VENDA",
+
+quantidade:item.quantidade,
+
+observacao:
+`Venda realizada - ${pagamento}`
+
+}
+
+]);
 
 
 
@@ -563,22 +629,34 @@ quantidade:novoEstoque
 
 
 
-}
 
 
 
 
+setUltimaVenda({
+
+total,
+
+pagamento
+
+});
 
 
 
-
-alert("Venda realizada com sucesso!");
+setVendaFinalizada(true);
 
 
 
 setCarrinho([]);
 
+setProdutoSelecionado(null);
+
+setQuantidade(1);
+
+
+
 carregarProdutos();
+
 
 
 }
@@ -591,26 +669,27 @@ carregarProdutos();
 
 
 
-useEffect(()=>{
-
-
-carregarProdutos();
-
-
-},[]);
+function novaVenda(){
 
 
 
+setVendaFinalizada(false);
+
+setCarrinho([]);
+
+setProdutoSelecionado(null);
+
+setQuantidade(1);
+
+setBusca("");
 
 
 
-
-
+}
 
 return (
 
 <div>
-
 
 
 <h1 className="
@@ -627,6 +706,112 @@ items-center
 
 </h1>
 
+
+
+
+
+{
+vendaFinalizada && (
+
+<div className="
+bg-white
+rounded-2xl
+p-8
+shadow-xl
+border
+border-[#D99A45]
+mb-8
+text-center
+">
+
+
+<CheckCircle
+
+size={70}
+
+className="
+mx-auto
+text-green-600
+mb-5
+"
+
+/>
+
+
+
+<h2 className="
+text-3xl
+font-black
+text-[#2B1718]
+">
+
+Venda realizada com sucesso!
+
+</h2>
+
+
+
+
+<p className="
+mt-4
+text-xl
+font-bold
+">
+
+Total:
+
+R$ {ultimaVenda.total.toFixed(2)}
+
+</p>
+
+
+
+
+<p className="
+mt-2
+text-[#6B554C]
+font-bold
+">
+
+Pagamento:
+
+{ultimaVenda.pagamento}
+
+</p>
+
+
+
+
+
+
+
+<button
+
+onClick={novaVenda}
+
+className="
+mt-6
+bg-[#C9362C]
+text-white
+p-4
+rounded-xl
+font-black
+w-full
+"
+
+>
+
+🛒 Iniciar Nova Venda
+
+</button>
+
+
+
+</div>
+
+)
+
+}
 
 
 
@@ -652,6 +837,7 @@ gap-8
 <div>
 
 
+
 <h2 className="
 text-2xl
 font-black
@@ -667,14 +853,17 @@ Produtos
 
 
 
-
 <div className="
 bg-white
 p-5
 rounded-2xl
 shadow
 border
+border-[#F5D7B0]
 ">
+
+
+
 
 
 <div className="
@@ -690,6 +879,7 @@ mb-5
 
 <Search/>
 
+
 <input
 
 className="
@@ -702,16 +892,14 @@ placeholder="Pesquisar produto"
 
 value={busca}
 
-onChange={
-e=>setBusca(e.target.value)
+onChange={e=>
+setBusca(e.target.value)
 }
 
 />
 
 
 </div>
-
-
 
 
 
@@ -724,7 +912,6 @@ e=>setBusca(e.target.value)
 produtosFiltrados.map(p=>(
 
 
-
 <div
 
 key={p.id}
@@ -732,19 +919,13 @@ key={p.id}
 onClick={()=>setProdutoSelecionado(p)}
 
 className="
-
 p-4
-
 rounded-xl
-
 mb-3
-
 cursor-pointer
-
 border
-
-hover:border-red-500
-
+hover:border-[#C9362C]
+transition
 "
 
 >
@@ -753,6 +934,7 @@ hover:border-red-500
 <div className="
 flex
 justify-between
+gap-3
 ">
 
 
@@ -764,21 +946,32 @@ justify-between
 
 
 
-<span>
+<span className="
+font-black
+text-[#C9362C]
+">
 
-R$ {Number(p.preco_venda).toFixed(2)}
+R$ {Number(
+p.preco_venda
+)
+.toFixed(2)}
 
 </span>
-
 
 
 </div>
 
 
 
-<p>
 
-Estoque: {p.quantidade}
+<p className="
+mt-2
+text-[#6B554C]
+">
+
+Estoque:
+
+{p.estoque}
 
 </p>
 
@@ -789,9 +982,7 @@ Estoque: {p.quantidade}
 
 ))
 
-
 }
-
 
 
 
@@ -805,7 +996,6 @@ Estoque: {p.quantidade}
 
 
 {
-
 produtoSelecionado && (
 
 <div className="
@@ -814,14 +1004,22 @@ bg-white
 p-5
 rounded-xl
 border
+border-[#D99A45]
 ">
 
 
-<h3 className="font-black">
+
+<h3 className="
+font-black
+text-xl
+">
 
 {produtoSelecionado.nome}
 
 </h3>
+
+
+
 
 
 <input
@@ -832,21 +1030,22 @@ min="1"
 
 value={quantidade}
 
-onChange={
-e=>setQuantidade(
+onChange={e=>
+setQuantidade(
 Number(e.target.value)
 )
 }
 
 className="
-mt-3
+mt-4
 p-3
 border
 rounded-xl
 w-full
 "
 
-/>
+ />
+
 
 
 
@@ -861,7 +1060,7 @@ className="
 mt-4
 bg-[#C9362C]
 text-white
-p-3
+p-4
 rounded-xl
 w-full
 font-black
@@ -869,9 +1068,10 @@ font-black
 
 >
 
-Adicionar
+Adicionar ao carrinho
 
 </button>
+
 
 
 </div>
@@ -882,7 +1082,14 @@ Adicionar
 
 
 
+
+
 </div>
+
+
+
+</div>
+
 
 
 
@@ -900,7 +1107,10 @@ bg-white
 rounded-2xl
 p-6
 shadow
+border
+border-[#F5D7B0]
 ">
+
 
 
 <h2 className="
@@ -909,6 +1119,7 @@ font-black
 mb-5
 flex
 gap-2
+items-center
 ">
 
 <ShoppingCart/>
@@ -916,6 +1127,8 @@ gap-2
 Carrinho
 
 </h2>
+
+
 
 
 
@@ -938,8 +1151,8 @@ rounded-xl
 mb-3
 flex
 justify-between
+items-center
 "
-
 
 >
 
@@ -954,9 +1167,12 @@ justify-between
 </b>
 
 
+
 <p>
 
-{item.quantidade} unidade(s)
+{item.quantidade}
+
+unidade(s)
 
 </p>
 
@@ -965,11 +1181,14 @@ justify-between
 
 
 
+
 <button
 
 onClick={()=>removerProduto(item.id)}
 
-className="text-red-600"
+className="
+text-red-600
+"
 
 >
 
@@ -978,13 +1197,15 @@ className="text-red-600"
 </button>
 
 
+
 </div>
 
 
 ))
 
-
 }
+
+
 
 
 
@@ -1010,12 +1231,13 @@ R$ {totalVenda().toFixed(2)}
 
 
 
+
 <select
 
 value={pagamento}
 
-onChange={
-e=>setPagamento(e.target.value)
+onChange={e=>
+setPagamento(e.target.value)
 }
 
 className="
@@ -1066,7 +1288,6 @@ gap-3
 
 >
 
-
 <CreditCard/>
 
 FINALIZAR VENDA
@@ -1076,12 +1297,14 @@ FINALIZAR VENDA
 
 
 
-</div>
 
 
 </div>
 
 
+</div>
+
+
 
 
 
@@ -1090,4 +1313,6 @@ FINALIZAR VENDA
 </div>
 
 
-</div>)}
+)
+
+}
