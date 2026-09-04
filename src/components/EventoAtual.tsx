@@ -12,10 +12,12 @@ import {
 
 
 
+
 export default function EventoAtual(){
 
 
 const {eventoAtual}=useEvento();
+
 
 
 
@@ -88,6 +90,7 @@ border-[#D99A45]
 
 
 
+
 <div className="
 flex
 items-center
@@ -107,6 +110,7 @@ text-[#2B1718]
 <CalendarDays size={22}/>
 
 </div>
+
 
 
 
@@ -132,22 +136,28 @@ Evento Atual
 
 
 
+
 <h2
+
 style={{
-  color:"#FFFFFF",
-  opacity:1
+color:"#FFFFFF",
+opacity:1
 }}
+
 className="
 text-2xl
 font-black
 leading-tight
 mt-3
 "
+
 >
 
 {eventoAtual.nome}
 
 </h2>
+
+
 
 
 
@@ -179,6 +189,8 @@ text-base
 
 
 
+
+
 <div className="
 mt-4
 bg-[#FFF5EA]
@@ -187,6 +199,8 @@ p-4
 border
 border-[#D99A45]
 ">
+
+
 
 
 
@@ -205,6 +219,8 @@ text-sm
 
 
 
+
+
 <p className="
 text-[#2B1718]
 font-black
@@ -214,10 +230,19 @@ text-lg
 
 
 {
-new Date(
 eventoAtual.data_inicio
-)
-.toLocaleDateString("pt-BR")
+
+?
+
+eventoAtual.data_inicio
+.split("-")
+.reverse()
+.join("/")
+
+:
+
+"Sem data"
+
 }
 
 
@@ -227,10 +252,19 @@ eventoAtual.data_inicio
 
 
 {
-new Date(
 eventoAtual.data_fim
-)
-.toLocaleDateString("pt-BR")
+
+?
+
+eventoAtual.data_fim
+.split("-")
+.reverse()
+.join("/")
+
+:
+
+"Sem data"
+
 }
 
 
@@ -241,7 +275,10 @@ eventoAtual.data_fim
 
 
 
+
 </div>
+
+
 
 
 
