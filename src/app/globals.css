@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+
+:root {
+
+--coffee-dark:#2B1718;
+--coffee-red:#C9362C;
+--coffee-gold:#D99A45;
+--coffee-beige:#F7EFE7;
+--coffee-white:#FFF8F0;
+
+}
+
+
+*{
+box-sizing:border-box;
+}
+
+
+body {
+
+background: var(--coffee-beige);
+
+color: var(--coffee-dark);
+
+font-family:
+Inter,
+Arial,
+Helvetica,
+sans-serif;
+
+}
+
+
+
+/* títulos */
+
+h1,h2,h3 {
+
+color:var(--coffee-dark);
+
+letter-spacing:-0.02em;
+
+}
+
+
+
+/* textos */
+
+p {
+
+color:#5A4740;
+
+}
+
+
+
+/* links */
+
+a {
+
+text-decoration:none;
+
+}
+
+
+
+/* cards */
+
+.card {
+
+background:white;
+
+border-radius:20px;
+
+padding:24px;
+
+box-shadow:
+0 10px 30px rgba(43,23,24,.12);
+
+border:
+1px solid rgba(217,154,69,.25);
+
+}
+
+
+
+/* botão principal */
+
+.btn-primary {
+
+background:
+var(--coffee-red);
+
+color:white;
+
+font-weight:700;
+
+border-radius:12px;
+
+padding:12px 20px;
+
+transition:.3s;
+
+}
+
+
+.btn-primary:hover{
+
+background:#A92D25;
+
+}
