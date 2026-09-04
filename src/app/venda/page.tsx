@@ -21,8 +21,11 @@ import {
   Trash2,
   CreditCard,
   Search,
-  CheckCircle
+  CheckCircle,
+  Plus,
+  Minus
 } from "lucide-react";
+
 
 
 
@@ -31,43 +34,80 @@ export default function Venda(){
 
 
 
-const {eventoAtual}=useEvento();
+const {
+  eventoAtual
+}=useEvento();
 
 
 
-const [produtos,setProdutos]=useState<any[]>([]);
 
-
-const [busca,setBusca]=useState("");
-
-
-const [carrinho,setCarrinho]=useState<any[]>([]);
-
-
-
-const [pagamento,setPagamento]=useState("PIX");
+const [
+  produtos,
+  setProdutos
+]=useState<any[]>([]);
 
 
 
-const [produtoSelecionado,setProdutoSelecionado]=useState<any>(null);
+
+const [
+  busca,
+  setBusca
+]=useState("");
 
 
 
-const [quantidade,setQuantidade]=useState(1);
+
+const [
+  produtoSelecionado,
+  setProdutoSelecionado
+]=useState<any>(null);
 
 
 
-const [vendaFinalizada,setVendaFinalizada]=useState(false);
+
+const [
+  quantidade,
+  setQuantidade
+]=useState(1);
 
 
 
-const [ultimaVenda,setUltimaVenda]=useState({
+
+const [
+  carrinho,
+  setCarrinho
+]=useState<any[]>([]);
+
+
+
+
+const [
+  pagamento,
+  setPagamento
+]=useState("PIX");
+
+
+
+
+const [
+  vendaFinalizada,
+  setVendaFinalizada
+]=useState(false);
+
+
+
+
+const [
+  ultimaVenda,
+  setUltimaVenda
+]=useState({
 
 total:0,
 
 pagamento:""
 
 });
+
 
 
 
@@ -90,7 +130,11 @@ return;
 
 
 
-const {data,error}=await supabase
+
+const {
+data,
+error
+}=await supabase
 
 .from("produtos")
 
@@ -138,7 +182,6 @@ setProdutos(data || []);
 
 const produtosFiltrados = produtos.filter(p=>
 
-
 p.nome
 
 .toLowerCase()
@@ -149,8 +192,99 @@ busca.toLowerCase()
 
 )
 
+);
+
+
+
+
+
+
+
+
+
+function selecionarProduto(produto:any){
+
+
+setProdutoSelecionado(produto);
+
+
+setQuantidade(1);
+
+
+}
+
+
+
+
+
+
+
+
+
+function aumentarQuantidade(){
+
+
+
+if(!produtoSelecionado){
+
+return;
+
+}
+
+
+
+if(
+
+quantidade <
+
+Number(produtoSelecionado.estoque)
+
+){
+
+
+setQuantidade(
+
+quantidade + 1
 
 );
+
+
+}
+
+
+
+}
+
+
+
+
+
+
+
+
+
+function diminuirQuantidade(){
+
+
+
+if(
+
+quantidade > 1
+
+){
+
+
+setQuantidade(
+
+quantidade - 1
+
+);
+
+
+}
+
+
+}
 
 
 
@@ -165,43 +299,6 @@ function adicionarProduto(){
 
 
 if(!produtoSelecionado){
-
-alert("Selecione um produto");
-
-return;
-
-}
-
-
-
-
-
-if(
-quantidade<=0
-){
-
-alert("Quantidade inválida");
-
-return;
-
-}
-
-
-
-
-
-
-if(
-quantidade >
-produtoSelecionado.estoque
-){
-
-alert(
-
-`Estoque disponível: ${produtoSelecionado.estoque}`
-
-);
-
 
 return;
 
@@ -221,21 +318,27 @@ p=>p.id===produtoSelecionado.id
 
 
 
+
 if(existente){
 
 
 
 const novaQuantidade =
 
-existente.quantidade + quantidade;
+existente.quantidade +
+
+quantidade;
 
 
 
 
 
 if(
+
 novaQuantidade >
-produtoSelecionado.estoque
+
+Number(produtoSelecionado.estoque)
+
 ){
 
 alert("Quantidade maior que estoque");
@@ -301,13 +404,18 @@ quantidade
 
 
 
-setQuantidade(1);
-
 setProdutoSelecionado(null);
+
+
+setQuantidade(1);
 
 
 
 }
+
+
+
+
 
 
 
@@ -333,7 +441,12 @@ p=>p.id!==id
 
 
 
+
+
+
+
 function totalVenda(){
+
 
 
 return carrinho.reduce(
@@ -346,7 +459,9 @@ Number(item.preco_venda)
 
 *
 
-item.quantidade,
+item.quantidade
+
+,
 
 0
 
@@ -359,6 +474,10 @@ item.quantidade,
 
 
 
+
+
+
+
 useEffect(()=>{
 
 
@@ -366,25 +485,22 @@ carregarProdutos();
 
 
 },[eventoAtual]);
-
 async function finalizarVenda(){
-
 
 
 if(!eventoAtual){
 
-alert("Nenhum evento aberto");
+alert("Nenhum evento aberto.");
 
 return;
 
 }
-
 
 
 
 if(carrinho.length===0){
 
-alert("Carrinho vazio");
+alert("Carrinho vazio.");
 
 return;
 
@@ -392,79 +508,111 @@ return;
 
 
 
-
-
-
-// Confere estoque novamente antes de vender
+// CONFERE ESTOQUE ATUAL ANTES DE FINALIZAR
 
 for(const item of carrinho){
 
 
-
-const {data:produto,error}=await supabase
+const {
+data:produtoAtual,
+error:erroProduto
+}=await supabase
 
 .from("produtos")
 
 .select("estoque")
 
-.eq("id",item.id)
+.eq(
+"id",
+item.id
+)
 
 .single();
 
 
 
-
-
-if(error || !produto){
+if(
+erroProduto ||
+!produtoAtual
+){
 
 alert(
-`Produto não encontrado: ${item.nome}`
+`Não foi possível consultar o estoque de ${item.nome}.`
 );
 
 return;
 
 }
-
-
 
 
 
 if(
-produto.estoque < item.quantidade
+Number(produtoAtual.estoque)
+<
+Number(item.quantidade)
 ){
 
 alert(
-
-`Estoque insuficiente para ${item.nome}. Disponível: ${produto.estoque}`
-
+`Estoque insuficiente para ${item.nome}.\nDisponível: ${produtoAtual.estoque}`
 );
-
 
 return;
 
 }
 
 
-
 }
 
 
 
 
+const total=totalVenda();
 
 
 
 
+// DATA/HORA LOCAL SEM PROBLEMA DE FUSO
 
-const total = totalVenda();
-
-
-
+const agora=new Date();
 
 
+const ano=
+agora.getFullYear();
 
 
-const {data:venda,error:vendaError}=await supabase
+const mes=
+String(
+agora.getMonth()+1
+).padStart(2,"0");
+
+
+const dia=
+String(
+agora.getDate()
+).padStart(2,"0");
+
+
+const dataVenda=
+`${ano}-${mes}-${dia}`;
+
+
+const horaVenda=
+agora.toLocaleTimeString(
+"pt-BR",
+{
+hour12:false
+}
+);
+
+
+
+
+// CRIA VENDA
+
+const {
+data:venda,
+error:erroVenda
+}=await supabase
 
 .from("vendas")
 
@@ -478,19 +626,9 @@ valor_total:total,
 
 forma_pagamento:pagamento,
 
-data_venda:
+data_venda:dataVenda,
 
-new Date()
-
-.toISOString()
-
-.split("T")[0],
-
-hora_venda:
-
-new Date()
-
-.toLocaleTimeString()
+hora_venda:horaVenda
 
 }
 
@@ -502,13 +640,11 @@ new Date()
 
 
 
+if(erroVenda){
 
-
-
-
-if(vendaError){
-
-alert(vendaError.message);
+alert(
+`Erro ao registrar venda: ${erroVenda.message}`
+);
 
 return;
 
@@ -517,18 +653,16 @@ return;
 
 
 
-
-
-
-
+// ITENS + BAIXA DE ESTOQUE
 
 for(const item of carrinho){
 
 
+// REGISTRA ITEM
 
-
-
-await supabase
+const {
+error:erroItem
+}=await supabase
 
 .from("itens_venda")
 
@@ -542,15 +676,13 @@ produto_id:item.id,
 
 quantidade:item.quantidade,
 
-valor_unitario:item.preco_venda,
+valor_unitario:
+Number(item.preco_venda),
 
 subtotal:
-
 Number(item.preco_venda)
-
 *
-
-item.quantidade
+Number(item.quantidade)
 
 }
 
@@ -558,16 +690,57 @@ item.quantidade
 
 
 
+if(erroItem){
+
+alert(
+`Erro ao registrar ${item.nome}: ${erroItem.message}`
+);
+
+return;
+
+}
 
 
 
 
+// CONSULTA O ESTOQUE NOVAMENTE
+
+const {
+data:produtoAtual,
+error:erroEstoque
+}=await supabase
+
+.from("produtos")
+
+.select("estoque")
+
+.eq(
+"id",
+item.id
+)
+
+.single();
 
 
 
-const novoEstoque =
+if(
+erroEstoque ||
+!produtoAtual
+){
 
-Number(item.estoque)
+alert(
+`Erro ao atualizar estoque de ${item.nome}.`
+);
+
+return;
+
+}
+
+
+
+const novoEstoque=
+
+Number(produtoAtual.estoque)
 
 -
 
@@ -576,11 +749,11 @@ Number(item.quantidade);
 
 
 
+// ATUALIZA PRODUTO
 
-
-
-
-await supabase
+const {
+error:erroAtualizacao
+}=await supabase
 
 .from("produtos")
 
@@ -597,12 +770,24 @@ item.id
 
 
 
+if(erroAtualizacao){
+
+alert(
+`Erro na baixa de estoque de ${item.nome}: ${erroAtualizacao.message}`
+);
+
+return;
+
+}
 
 
 
 
+// HISTÓRICO DE MOVIMENTAÇÃO
 
-await supabase
+const {
+error:erroMovimento
+}=await supabase
 
 .from("estoque_movimentos")
 
@@ -617,7 +802,7 @@ tipo:"SAIDA_VENDA",
 quantidade:item.quantidade,
 
 observacao:
-`Venda realizada - ${pagamento}`
+`Venda ${pagamento} - Evento: ${eventoAtual.nome}`
 
 }
 
@@ -625,19 +810,28 @@ observacao:
 
 
 
+if(erroMovimento){
+
+console.log(
+"Erro ao registrar movimentação:",
+erroMovimento.message
+);
+
+}
+
+
 }
 
 
 
 
-
-
+// GUARDA RESUMO DA VENDA
 
 setUltimaVenda({
 
-total,
+total:total,
 
-pagamento
+pagamento:pagamento
 
 });
 
@@ -647,16 +841,21 @@ setVendaFinalizada(true);
 
 
 
+// LIMPA OPERAÇÃO
+
 setCarrinho([]);
 
 setProdutoSelecionado(null);
 
 setQuantidade(1);
 
+setBusca("");
 
 
-carregarProdutos();
 
+// ATUALIZA LISTA/ESTOQUE
+
+await carregarProdutos();
 
 
 }
@@ -667,10 +866,7 @@ carregarProdutos();
 
 
 
-
-
 function novaVenda(){
-
 
 
 setVendaFinalizada(false);
@@ -683,24 +879,30 @@ setQuantidade(1);
 
 setBusca("");
 
+setPagamento("PIX");
 
 
 }
 
 return (
 
-<div>
-
-
-<h1 className="
-text-4xl
-font-black
-mb-8
-text-[#2B1718]
+<div
+className="
+h-[calc(100vh-100px)]
 flex
-gap-3
-items-center
-">
+flex-col
+"
+>
+
+
+<h1
+className="
+text-3xl
+font-black
+text-[#2B1718]
+mb-4
+"
+>
 
 🛒 Nova Venda
 
@@ -713,37 +915,37 @@ items-center
 {
 vendaFinalizada && (
 
-<div className="
+<div
+className="
 bg-white
-rounded-2xl
-p-8
-shadow-xl
 border
-border-[#D99A45]
-mb-8
+border-green-500
+rounded-xl
+p-4
+mb-3
 text-center
-">
+"
+>
 
 
 <CheckCircle
 
-size={70}
-
 className="
 mx-auto
 text-green-600
-mb-5
+mb-2
 "
 
 />
 
 
 
-<h2 className="
-text-3xl
+<h2
+className="
 font-black
-text-[#2B1718]
-">
+text-xl
+"
+>
 
 Venda realizada com sucesso!
 
@@ -752,34 +954,16 @@ Venda realizada com sucesso!
 
 
 
-<p className="
-mt-4
-text-xl
+<p
+className="
 font-bold
-">
-
-Total:
+mt-2
+"
+>
 
 R$ {ultimaVenda.total.toFixed(2)}
 
 </p>
-
-
-
-
-<p className="
-mt-2
-text-[#6B554C]
-font-bold
-">
-
-Pagamento:
-
-{ultimaVenda.pagamento}
-
-</p>
-
-
 
 
 
@@ -790,18 +974,18 @@ Pagamento:
 onClick={novaVenda}
 
 className="
-mt-6
+mt-3
 bg-[#C9362C]
 text-white
-p-4
 rounded-xl
-font-black
+p-3
 w-full
+font-black
 "
 
 >
 
-🛒 Iniciar Nova Venda
+🛒 Iniciar nova venda
 
 </button>
 
@@ -820,13 +1004,16 @@ w-full
 
 
 
-
-<div className="
+<div
+className="
 grid
 grid-cols-1
 lg:grid-cols-2
-gap-8
-">
+gap-5
+flex-1
+min-h-0
+"
+>
 
 
 
@@ -834,61 +1021,65 @@ gap-8
 
 
 
-<div>
 
 
 
-<h2 className="
-text-2xl
-font-black
-mb-5
-">
-
-Produtos
-
-</h2>
+{/* PRODUTOS */}
 
 
-
-
-
-
-<div className="
-bg-white
-p-5
-rounded-2xl
-shadow
-border
-border-[#F5D7B0]
-">
-
-
-
-
-
-<div className="
+<div
+className="
 flex
-gap-3
-items-center
-bg-[#FFF8F0]
-p-3
+flex-col
+min-h-0
+"
+>
+
+
+
+
+
+
+
+{/* PESQUISA */}
+
+
+<div
+className="
+bg-white
 rounded-xl
-mb-5
-">
+border
+p-3
+mb-3
+"
+>
 
 
-<Search/>
+<div
+className="
+flex
+items-center
+gap-2
+bg-[#FFF8F0]
+rounded-lg
+p-3
+"
+>
+
+
+<Search size={20}/>
+
 
 
 <input
 
 className="
-bg-transparent
 outline-none
+bg-transparent
 w-full
 "
 
-placeholder="Pesquisar produto"
+placeholder="Pesquisar produto..."
 
 value={busca}
 
@@ -899,9 +1090,34 @@ setBusca(e.target.value)
 />
 
 
+
 </div>
 
 
+
+</div>
+
+
+
+
+
+
+
+
+
+{/* LISTA PRODUTOS */}
+
+
+<div
+className="
+bg-white
+rounded-xl
+border
+p-3
+flex-1
+overflow-y-auto
+"
+>
 
 
 
@@ -916,47 +1132,79 @@ produtosFiltrados.map(p=>(
 
 key={p.id}
 
-onClick={()=>setProdutoSelecionado(p)}
+onClick={()=>selecionarProduto(p)}
+
+className={`
+rounded-xl
+border
+p-3
+mb-2
+cursor-pointer
+transition
+
+${
+produtoSelecionado?.id===p.id
+
+?
+
+"border-[#C9362C] bg-[#FFF8F0]"
+
+:
+
+"border-[#E5D8CD]"
+
+}
+
+`
+
+}
+
+>
+
+
+<div
 
 className="
-p-4
-rounded-xl
-mb-3
-cursor-pointer
-border
-hover:border-[#C9362C]
-transition
+flex
+justify-between
+gap-3
 "
 
 >
 
 
-<div className="
-flex
-justify-between
-gap-3
-">
+<p
 
+className="
+font-bold
+text-sm
+"
 
-<strong>
+>
 
 {p.nome}
+
+</p>
+
+
+
+
+
+<strong
+
+className="
+text-[#C9362C]
+text-sm
+whitespace-nowrap
+"
+
+>
+
+R$ {Number(p.preco_venda).toFixed(2)}
 
 </strong>
 
 
-
-<span className="
-font-black
-text-[#C9362C]
-">
-
-R$ {Number(
-p.preco_venda
-)
-.toFixed(2)}
-
-</span>
 
 
 </div>
@@ -964,16 +1212,21 @@ p.preco_venda
 
 
 
-<p className="
-mt-2
+
+<p
+
+className="
+text-xs
 text-[#6B554C]
-">
+mt-1
+"
 
-Estoque:
+>
 
-{p.estoque}
+Estoque: {p.estoque}
 
 </p>
+
 
 
 
@@ -982,6 +1235,7 @@ Estoque:
 
 ))
 
+
 }
 
 
@@ -995,56 +1249,143 @@ Estoque:
 
 
 
+
+
+{/* PRODUTO SELECIONADO */}
+
+
+
 {
+
 produtoSelecionado && (
 
-<div className="
-mt-5
-bg-white
-p-5
-rounded-xl
+
+<div
+
+className="
+bg-[#FFF8F0]
 border
 border-[#D99A45]
-">
+rounded-xl
+p-3
+mt-3
+"
+
+>
 
 
 
-<h3 className="
+<p
+
+className="
 font-black
-text-xl
-">
+text-sm
+truncate
+"
+
+>
 
 {produtoSelecionado.nome}
 
-</h3>
+</p>
 
 
 
 
 
-<input
 
-type="number"
 
-min="1"
-
-value={quantidade}
-
-onChange={e=>
-setQuantidade(
-Number(e.target.value)
-)
-}
+<div
 
 className="
-mt-4
-p-3
-border
-rounded-xl
-w-full
+flex
+items-center
+justify-between
+mt-3
 "
 
- />
+>
+
+
+
+
+<div
+
+className="
+flex
+items-center
+gap-3
+"
+
+>
+
+
+
+<button
+
+onClick={diminuirQuantidade}
+
+className="
+bg-white
+border
+rounded-lg
+p-2
+"
+
+>
+
+<Minus size={18}/>
+
+</button>
+
+
+
+
+
+
+
+<span
+
+className="
+font-black
+text-lg
+"
+
+>
+
+{quantidade}
+
+</span>
+
+
+
+
+
+
+
+<button
+
+onClick={aumentarQuantidade}
+
+className="
+bg-white
+border
+rounded-lg
+p-2
+"
+
+>
+
+<Plus size={18}/>
+
+</button>
+
+
+
+
+
+</div>
+
 
 
 
@@ -1057,24 +1398,31 @@ w-full
 onClick={adicionarProduto}
 
 className="
-mt-4
 bg-[#C9362C]
 text-white
-p-4
-rounded-xl
-w-full
+rounded-lg
+px-6
+py-2
 font-black
 "
 
 >
 
-Adicionar ao carrinho
+Adicionar
 
 </button>
 
 
 
+
+
 </div>
+
+
+
+
+</div>
+
 
 )
 
@@ -1084,11 +1432,14 @@ Adicionar ao carrinho
 
 
 
+
+
+
+
 </div>
 
 
 
-</div>
 
 
 
@@ -1099,28 +1450,38 @@ Adicionar ao carrinho
 
 
 
-<div>
+{/* CARRINHO */}
 
 
-<div className="
+
+<div
+
+className="
 bg-white
-rounded-2xl
-p-6
-shadow
+rounded-xl
 border
-border-[#F5D7B0]
-">
-
-
-
-<h2 className="
-text-2xl
-font-black
-mb-5
+p-4
 flex
-gap-2
+flex-col
+min-h-0
+"
+
+>
+
+
+
+<h2
+
+className="
+font-black
+text-xl
+flex
 items-center
-">
+gap-2
+mb-4
+"
+
+>
 
 <ShoppingCart/>
 
@@ -1134,10 +1495,65 @@ Carrinho
 
 
 
+<div
+
+className="
+flex-1
+overflow-y-auto
+"
+
+>
+
+
+
+
 
 {
 
+carrinho.length===0
+
+?
+
+(
+
+<div
+
+className="
+text-center
+text-[#6B554C]
+mt-10
+"
+
+>
+
+🛒
+
+
+<p
+
+className="
+font-bold
+mt-2
+"
+
+>
+
+Nenhum item
+
+</p>
+
+
+
+</div>
+
+)
+
+:
+
+(
+
 carrinho.map(item=>(
+
 
 
 <div
@@ -1146,9 +1562,9 @@ key={item.id}
 
 className="
 bg-[#F7EFE7]
-p-4
 rounded-xl
-mb-3
+p-3
+mb-2
 flex
 justify-between
 items-center
@@ -1160,24 +1576,38 @@ items-center
 <div>
 
 
-<b>
+<p
+
+className="
+font-bold
+text-sm
+"
+
+>
 
 {item.nome}
-
-</b>
-
-
-
-<p>
-
-{item.quantidade}
-
-unidade(s)
 
 </p>
 
 
+
+
+<p
+
+className="
+text-xs
+"
+
+>
+
+{item.quantidade} unidade(s)
+
+</p>
+
+
+
 </div>
+
 
 
 
@@ -1192,9 +1622,11 @@ text-red-600
 
 >
 
-<Trash2/>
+<Trash2 size={20}/>
 
 </button>
+
+
 
 
 
@@ -1203,28 +1635,46 @@ text-red-600
 
 ))
 
+
+)
+
 }
 
 
 
 
+</div>
 
 
 
 
 
-<h2 className="
+
+
+
+<div
+
+className="
+border-t
+pt-4
+"
+
+>
+
+
+
+<h2
+
+className="
 text-3xl
 font-black
-mt-6
-">
+"
 
-Total:
+>
 
 R$ {totalVenda().toFixed(2)}
 
 </h2>
-
 
 
 
@@ -1242,10 +1692,10 @@ setPagamento(e.target.value)
 
 className="
 w-full
-p-4
-mt-5
-rounded-xl
 border
+rounded-xl
+p-3
+mt-3
 "
 
 >
@@ -1274,21 +1724,24 @@ border
 onClick={finalizarVenda}
 
 className="
-mt-5
+mt-3
 bg-[#D99A45]
 text-white
-p-4
 rounded-xl
+p-3
 w-full
 font-black
 flex
 justify-center
-gap-3
+items-center
+gap-2
 "
 
 >
 
-<CreditCard/>
+
+<CreditCard size={20}/>
+
 
 FINALIZAR VENDA
 
@@ -1298,13 +1751,7 @@ FINALIZAR VENDA
 
 
 
-
 </div>
-
-
-</div>
-
-
 
 
 
@@ -1312,6 +1759,21 @@ FINALIZAR VENDA
 
 </div>
 
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+</div>
 
 )
 
