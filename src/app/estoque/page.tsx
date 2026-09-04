@@ -1,28 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
 
 import {
-PackagePlus,
-Upload,
-FileText,
-History,
-Trash2,
-AlertTriangle
+  useEffect,
+  useState
+} from "react";
+
+
+import {
+  supabase
+} from "@/lib/supabase";
+
+
+import {
+  XMLParser
+} from "fast-xml-parser";
+
+
+import {
+  Upload,
+  Package,
+  Trash2
 } from "lucide-react";
 
-import { XMLParser } from "fast-xml-parser";
 
 
 export default function Estoque(){
 
 
+
 const [produtos,setProdutos]=useState<any[]>([]);
 
-const [entradas,setEntradas]=useState<any[]>([]);
+const [arquivo,setArquivo]=useState<File|null>(null);
 
-const [mostrarManual,setMostrarManual]=useState(false);
+const [eventoAtual,setEventoAtual]=useState<any>(null);
 
 
 
@@ -31,7 +42,7 @@ const [produto,setProduto]=useState({
 
 nome:"",
 categoria:"",
-quantidade:0,
+estoque:0,
 custo:0,
 preco_venda:0
 
@@ -42,62 +53,113 @@ preco_venda:0
 
 
 
-
-async function carregarDados(){
-
-
-const {data:p}=await supabase
-
-.from("produtos")
-.select("*")
-.eq("ativo",true)
-.order("created_at",{ascending:false});
+async function carregarEvento(){
 
 
+const {data}=await supabase
 
+.from("evento_atual")
 
-const {data:e}=await supabase
+.select("evento_id")
 
-.from("entradas_estoque")
+.limit(1)
 
-.select(`
-*,
-produtos(
-nome
-)
-`)
-
-.order("created_at",{ascending:false});
+.single();
 
 
 
-setProdutos(p || []);
+if(!data?.evento_id){
 
-setEntradas(e || []);
-
-
-
-}
-
-
-
-
-
-
-
-async function excluirProduto(id:string,nome:string){
-
-
-const confirmar = confirm(
-`Deseja remover ${nome} do estoque?`
-);
-
-
-if(!confirmar){
+setEventoAtual(null);
 
 return;
 
 }
+
+
+
+
+const {data:evento}=await supabase
+
+.from("eventos")
+
+.select("*")
+
+.eq("id",data.evento_id)
+
+.single();
+
+
+
+setEventoAtual(evento || null);
+
+
+
+}
+
+
+
+
+
+
+
+
+async function carregarProdutos(){
+
+
+
+if(!eventoAtual?.id)return;
+
+
+
+const {data,error}=await supabase
+
+.from("produtos")
+
+.select("*")
+
+.eq("evento_id",eventoAtual.id)
+
+.order("nome");
+
+
+
+if(error){
+
+console.log(error);
+
+return;
+
+}
+
+
+
+setProdutos(data || []);
+
+
+
+}
+
+
+
+
+
+
+
+
+
+async function salvarProduto(){
+
+
+
+if(!eventoAtual){
+
+alert("Nenhum evento aberto");
+
+return;
+
+}
+
 
 
 
@@ -105,14 +167,17 @@ const {error}=await supabase
 
 .from("produtos")
 
-.update({
+.insert([
 
-ativo:false
+{
 
-})
+...produto,
 
-.eq("id",id);
+evento_id:eventoAtual.id
 
+}
+
+]);
 
 
 
@@ -126,76 +191,23 @@ return;
 
 
 
-alert("Produto removido do estoque!");
-
-carregarDados();
-
-
-}
+alert("Produto cadastrado!");
 
 
 
+setProduto({
+
+nome:"",
+categoria:"",
+estoque:0,
+custo:0,
+preco_venda:0
+
+});
 
 
 
-
-
-function statusEstoque(qtd:number){
-
-
-if(qtd<=0){
-
-return (
-
-<span className="
-text-red-600
-font-black
-flex
-items-center
-gap-1
-">
-
-🔴 Sem estoque
-
-</span>
-
-)
-
-}
-
-
-
-if(qtd<=10){
-
-return (
-
-<span className="
-text-yellow-600
-font-black
-">
-
-🟡 Estoque baixo
-
-</span>
-
-)
-
-}
-
-
-
-return (
-
-<span className="
-text-green-600
-font-black
-">
-
-🟢 Normal
-
-</span>
-
-)
+carregarProdutos();
 
 
 
@@ -209,15 +221,278 @@ font-black
 
 
 
-async function salvarManual(){
+async function excluirProduto(id:string){
 
 
 
-const {data:novo,error}=await supabase
+const confirmar=confirm(
+"Excluir produto?"
+);
+
+
+
+if(!confirmar)return;
+
+
+
+await supabase
 
 .from("produtos")
 
-.insert([produto])
+.delete()
+
+.eq("id",id);
+
+
+
+carregarProdutos();
+
+
+
+}
+
+
+
+
+
+
+
+
+
+async function importarXML(){
+
+
+
+if(!arquivo){
+
+alert("Selecione um XML");
+
+return;
+
+}
+
+
+
+
+if(!eventoAtual){
+
+alert("Abra um evento antes");
+
+return;
+
+}
+
+
+
+
+
+const texto=await arquivo.text();
+
+
+
+
+
+const parser=new XMLParser({
+
+ignoreAttributes:false
+
+});
+
+
+
+
+
+const xml:any=parser.parse(texto);
+
+
+
+
+
+
+const infNFe =
+
+xml?.nfeProc?.NFe?.infNFe ||
+
+xml?.NFe?.infNFe;
+
+
+
+
+
+if(!infNFe){
+
+alert("XML inválido");
+
+return;
+
+}
+
+
+
+
+
+const fornecedor =
+
+infNFe.emit?.xNome ||
+
+"Fornecedor não informado";
+
+
+
+
+
+
+let detalhes = infNFe.det;
+
+
+
+
+
+if(!Array.isArray(detalhes)){
+
+detalhes=[detalhes];
+
+}
+
+
+
+
+
+for(const item of detalhes){
+
+
+
+const prod=item.prod;
+
+
+
+const nome=
+
+prod.xProd;
+
+
+
+const quantidade=
+
+Number(prod.qCom || 0);
+
+
+
+const valor=
+
+Number(prod.vUnCom || 0);
+
+
+
+
+
+if(!nome || quantidade<=0){
+
+continue;
+
+}
+
+
+
+
+
+
+
+
+let produtoExistente;
+
+
+
+const {data:produtoBusca}=await supabase
+
+.from("produtos")
+
+.select("*")
+
+.eq("evento_id",eventoAtual.id)
+
+.eq("nome",nome)
+
+.maybeSingle();
+
+
+
+
+
+produtoExistente=produtoBusca;
+
+
+
+
+
+
+
+
+let produtoId:string;
+
+
+
+
+
+
+if(produtoExistente){
+
+
+
+await supabase
+
+.from("produtos")
+
+.update({
+
+estoque:
+
+Number(produtoExistente.estoque)
+
++
+
+quantidade,
+
+custo:valor
+
+})
+
+.eq("id",produtoExistente.id);
+
+
+
+
+produtoId=produtoExistente.id;
+
+
+
+}else{
+
+
+
+const {data:novoProduto}=await supabase
+
+.from("produtos")
+
+.insert([
+
+{
+
+evento_id:eventoAtual.id,
+
+nome,
+
+categoria:"XML",
+
+estoque:quantidade,
+
+custo:valor,
+
+preco_venda:0
+
+}
+
+])
 
 .select()
 
@@ -225,14 +500,13 @@ const {data:novo,error}=await supabase
 
 
 
+produtoId=novoProduto.id;
 
-if(error){
 
-alert(error.message);
-
-return;
 
 }
+
+
 
 
 
@@ -246,13 +520,15 @@ await supabase
 
 {
 
-produto_id:novo.id,
+produto_id:produtoId,
 
-tipo:"ENTRADA_MANUAL",
+tipo:"XML",
 
-quantidade:produto.quantidade,
+quantidade,
 
-valor_unitario:produto.custo
+valor_unitario:valor,
+
+fornecedor
 
 }
 
@@ -262,12 +538,30 @@ valor_unitario:produto.custo
 
 
 
-alert("Produto cadastrado!");
-
-setMostrarManual(false);
 
 
-carregarDados();
+
+await supabase
+
+.from("estoque_movimentos")
+
+.insert([
+
+{
+
+produto_id:produtoId,
+
+tipo:"ENTRADA_XML",
+
+quantidade,
+
+observacao:
+"Entrada via NF-e XML"
+
+}
+
+]);
+
 
 
 
@@ -278,16 +572,37 @@ carregarDados();
 
 
 
+alert("XML importado com sucesso!");
+
+
+
+setArquivo(null);
+
+
+carregarProdutos();
+
+
+
+}
+useEffect(()=>{
+
+
+carregarEvento();
+
+
+},[]);
+
+
+
 
 
 useEffect(()=>{
 
 
-carregarDados();
+carregarProdutos();
 
 
-},[]);
-
+},[eventoAtual]);
 
 
 
@@ -301,14 +616,22 @@ return (
 <div>
 
 
+
+
+
 <h1 className="
 text-4xl
 font-black
 mb-8
 text-[#2B1718]
+flex
+items-center
+gap-3
 ">
 
-📦 Estoque
+<Package/>
+
+Estoque
 
 </h1>
 
@@ -317,110 +640,87 @@ text-[#2B1718]
 
 
 
+
 <div className="
-grid
-grid-cols-1
-md:grid-cols-3
-gap-6
+bg-white
+rounded-2xl
+p-8
+shadow
+border
+border-[#F5D7B0]
 mb-10
 ">
 
 
-
-
-
-<button
-
-onClick={()=>setMostrarManual(true)}
-
-className="
-bg-white
-p-6
-rounded-2xl
-shadow
-border
-border-[#F5D7B0]
-text-left
-"
-
->
-
-<PackagePlus/>
-
-<h3 className="
+<h2 className="
+text-2xl
 font-black
-text-xl
-mt-3
+mb-5
 ">
 
-Entrada Manual
+📄 Entrada por NF-e XML
 
-</h3>
+</h2>
 
 
-<p>
 
-Cadastrar produtos
+
+<p className="
+text-[#6B554C]
+mb-5
+">
+
+Evento atual:
+
+<b className="ml-2 text-[#C9362C]">
+
+{
+eventoAtual
+?
+eventoAtual.nome
+:
+"Nenhum evento aberto"
+}
+
+</b>
 
 </p>
 
 
-</button>
 
 
 
 
-
-
-
-<label
-
-className="
-bg-white
-p-6
-rounded-2xl
-shadow
-border
-border-[#F5D7B0]
-cursor-pointer
-"
-
->
-
-<Upload/>
-
-<h3 className="
-font-black
-text-xl
-mt-3
+<div className="
+flex
+flex-col
+md:flex-row
+gap-4
 ">
-
-Importar XML NF-e
-
-</h3>
-
-
-<p>
-
-Adicionar estoque via nota
-
-</p>
 
 
 <input
-
-hidden
 
 type="file"
 
 accept=".xml"
 
+onChange={e=>
+setArquivo(
+e.target.files?.[0] || null
+)
+}
+
+className="
+bg-[#FFF8F0]
+border
+border-[#D99A45]
+p-3
+rounded-xl
+text-black
+"
+
 />
-
-
-</label>
-
-
 
 
 
@@ -428,40 +728,32 @@ accept=".xml"
 
 <button
 
+onClick={importarXML}
+
 className="
-bg-white
-p-6
-rounded-2xl
-shadow
-border
-border-[#F5D7B0]
-text-left
+bg-[#C9362C]
+hover:bg-[#A52D25]
+text-white
+p-3
+rounded-xl
+font-black
+flex
+items-center
+justify-center
+gap-2
 "
 
 >
 
-<FileText/>
+<Upload size={20}/>
 
-<h3 className="
-font-black
-text-xl
-mt-3
-">
-
-Nota Manual
-
-</h3>
-
-
-<p>
-
-Registrar compra
-
-</p>
-
+Importar NF-e XML
 
 </button>
 
+
+
+</div>
 
 
 </div>
@@ -474,19 +766,16 @@ Registrar compra
 
 
 
-{
-mostrarManual && (
-
 <div className="
 bg-white
-p-8
 rounded-2xl
+p-8
 shadow
 border
 border-[#F5D7B0]
-max-w-xl
 mb-10
 ">
+
 
 
 <h2 className="
@@ -495,7 +784,7 @@ font-black
 mb-5
 ">
 
-➕ Entrada Manual
+➕ Cadastro manual
 
 </h2>
 
@@ -503,18 +792,35 @@ mb-5
 
 
 
-<div className="grid gap-4">
+
+<div className="
+grid
+gap-4
+md:grid-cols-2
+">
+
+
 
 
 
 <input
 
-className="input"
+className="
+p-3
+rounded-xl
+bg-[#FFF8F0]
+border
+border-[#D99A45]
+text-black
+"
 
-placeholder="Nome"
+placeholder="Nome produto"
 
-onChange={
-e=>setProduto({
+value={produto.nome}
+
+onChange={e=>
+
+setProduto({
 
 ...produto,
 
@@ -530,14 +836,27 @@ nome:e.target.value
 
 
 
+
+
+
 <input
 
-className="input"
+className="
+p-3
+rounded-xl
+bg-[#FFF8F0]
+border
+border-[#D99A45]
+text-black
+"
 
 placeholder="Categoria"
 
-onChange={
-e=>setProduto({
+value={produto.categoria}
+
+onChange={e=>
+
+setProduto({
 
 ...produto,
 
@@ -553,20 +872,33 @@ categoria:e.target.value
 
 
 
-<input
 
-className="input"
+
+
+<input
 
 type="number"
 
-placeholder="Quantidade"
+className="
+p-3
+rounded-xl
+bg-[#FFF8F0]
+border
+border-[#D99A45]
+text-black
+"
 
-onChange={
-e=>setProduto({
+placeholder="Estoque"
+
+value={produto.estoque}
+
+onChange={e=>
+
+setProduto({
 
 ...produto,
 
-quantidade:Number(e.target.value)
+estoque:Number(e.target.value)
 
 })
 
@@ -578,16 +910,29 @@ quantidade:Number(e.target.value)
 
 
 
-<input
 
-className="input"
+
+
+<input
 
 type="number"
 
+className="
+p-3
+rounded-xl
+bg-[#FFF8F0]
+border
+border-[#D99A45]
+text-black
+"
+
 placeholder="Custo"
 
-onChange={
-e=>setProduto({
+value={produto.custo}
+
+onChange={e=>
+
+setProduto({
 
 ...produto,
 
@@ -603,16 +948,29 @@ custo:Number(e.target.value)
 
 
 
-<input
 
-className="input"
+
+
+<input
 
 type="number"
 
+className="
+p-3
+rounded-xl
+bg-[#FFF8F0]
+border
+border-[#D99A45]
+text-black
+"
+
 placeholder="Preço venda"
 
-onChange={
-e=>setProduto({
+value={produto.preco_venda}
+
+onChange={e=>
+
+setProduto({
 
 ...produto,
 
@@ -629,12 +987,22 @@ preco_venda:Number(e.target.value)
 
 
 
+
+</div>
+
+
+
+
+
+
 <button
 
-onClick={salvarManual}
+onClick={salvarProduto}
 
 className="
-bg-[#C9362C]
+mt-5
+bg-[#D99A45]
+hover:bg-[#C38738]
 text-white
 p-4
 rounded-xl
@@ -648,16 +1016,9 @@ Salvar Produto
 </button>
 
 
-</div>
-
 
 
 </div>
-
-)
-
-}
-
 
 
 
@@ -682,13 +1043,12 @@ Produtos cadastrados
 
 
 
+
+
 <div className="
 grid
-grid-cols-1
-lg:grid-cols-2
-gap-5
+gap-4
 ">
-
 
 
 {
@@ -703,19 +1063,13 @@ key={p.id}
 className="
 bg-white
 rounded-2xl
-p-6
-shadow
+p-5
 border
 border-[#F5D7B0]
-"
-
->
-
-
-
-<div className="
+shadow
 flex
 justify-between
+items-center
 "
 
 >
@@ -727,6 +1081,7 @@ justify-between
 <h3 className="
 text-xl
 font-black
+text-[#2B1718]
 ">
 
 {p.nome}
@@ -735,7 +1090,9 @@ font-black
 
 
 
-<p>
+<p className="
+text-[#6B554C]
+">
 
 Categoria:
 {p.categoria}
@@ -743,23 +1100,62 @@ Categoria:
 </p>
 
 
+
 </div>
+
+
+
+
+
+
+<div className="
+text-right
+">
+
+
+<p className="
+font-black
+text-[#C9362C]
+text-xl
+">
+
+Estoque:
+
+{p.estoque}
+
+</p>
+
+
+
+<p>
+
+R$ {Number(p.preco_venda || 0)
+.toFixed(2)}
+
+</p>
+
 
 
 
 
 <button
 
-onClick={()=>excluirProduto(p.id,p.nome)}
+onClick={()=>excluirProduto(p.id)}
 
 className="
-text-red-600
-hover:scale-110
+mt-3
+text-[#C9362C]
+font-bold
+flex
+items-center
+gap-2
 "
 
 >
 
-<Trash2/>
+<Trash2 size={18}/>
+
+Excluir
 
 </button>
 
@@ -772,102 +1168,6 @@ hover:scale-110
 
 
 
-
-<div className="mt-4">
-
-
-<p className="
-font-bold
-">
-
-📦 Quantidade:
-{p.quantidade}
-
-</p>
-
-
-
-{statusEstoque(p.quantidade)}
-
-
-
-<p className="mt-2">
-
-Venda:
-R$ {Number(p.preco_venda).toFixed(2)}
-
-</p>
-
-
-
-</div>
-
-
-
-
-</div>
-
-
-
-))
-
-}
-
-
-</div>
-
-
-
-
-
-
-
-
-<h2 className="
-text-2xl
-font-black
-mt-10
-mb-5
-flex
-gap-2
-">
-
-<History/>
-
-Histórico de entradas
-
-</h2>
-
-
-
-
-
-{
-
-entradas.map(e=>(
-
-
-<div
-
-key={e.id}
-
-className="
-bg-white
-p-4
-rounded-xl
-mb-3
-border
-"
-
->
-
-{e.tipo}
-
--
-{e.quantidade}
-
-unidades
-
 </div>
 
 
@@ -879,6 +1179,12 @@ unidades
 
 </div>
 
+
+
+
+
+
+</div>
 
 )
 
